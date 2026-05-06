@@ -3,8 +3,9 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "start": "nodemon index.js",
-        "dev": "nodemon index.js"
+        "start": "node index.js",
+        "dev": "nodemon index.js",
+        "build": "echo 'No build required'"
     },
     "dependencies": {
         "@babel/core": "^7.17.10",
