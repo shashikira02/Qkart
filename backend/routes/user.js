@@ -5,13 +5,13 @@ const { handleError, verifyAuth } = require("../utils");
 var { users } = require("../db");
 
 router.get("/addresses", verifyAuth, (req, res) => {
-  console.log(`GET request received to "/user/addresses"`);
+  // console.log(`GET request received to "/user/addresses"`);
 
   return res.status(200).json(req.user.addresses);
 });
 
 router.post("/addresses", verifyAuth, (req, res) => {
-  console.log(`POST request received to "/cart/addresses"`);
+  // console.log(`POST request received to "/cart/addresses"`);
 
   if (req.body.address.length < 20) {
     return res.status(400).json({
@@ -38,20 +38,20 @@ router.post("/addresses", verifyAuth, (req, res) => {
         handleError(res, err);
       }
 
-      console.log(
-        `Address "${req.body.address}" added to user ${req.user.username}'s address list`
-      );
+      // console.log(
+      //   `Address "${req.body.address}" added to user ${req.user.username}'s address list`,
+      // );
 
       return res.status(200).json(req.user.addresses);
-    }
+    },
   );
 });
 
 router.delete("/addresses/:id", verifyAuth, async (req, res) => {
-  console.log(`DELETE request received to "/cart/addresses"`);
+  // console.log(`DELETE request received to "/cart/addresses"`);
 
   const index = await req.user.addresses.findIndex(
-    (element) => element._id === req.params.id
+    (element) => element._id === req.params.id,
   );
   if (index === -1) {
     return res.status(404).json({
@@ -69,12 +69,47 @@ router.delete("/addresses/:id", verifyAuth, async (req, res) => {
         handleError(res, err);
       }
 
-      console.log(
-        `Address with id ${req.user._id} deleteed from user ${req.user.username}'s address list`
-      );
+      // console.log(
+      //   `Address with id ${req.user._id} deleteed from user ${req.user.username}'s address list`,
+      // );
 
       return res.status(200).json(req.user.addresses);
-    }
+    },
+  );
+});
+
+router.get("/orders", verifyAuth, (req, res) => {
+  // console.log(`GET request received to "/user/orders"`);
+  return res.status(200).json(req.user.orders || []);
+});
+
+router.get("/profile", verifyAuth, (req, res) => {
+  const { password, ...safeUser } = req.user;
+  return res.status(200).json(safeUser);
+});
+
+router.post("/become-seller", verifyAuth, (req, res) => {
+  if (req.user.isSeller) {
+    return res.status(400).json({
+      success: false,
+      message: "Already a seller",
+    });
+  }
+
+  users.update(
+    { _id: req.user._id },
+    { $set: { isSeller: true } },
+    {},
+    (err) => {
+      if (err) {
+        handleError(res, err);
+      }
+      // console.log(`User ${req.user.username} is now a seller`);
+      return res.status(200).json({
+        success: true,
+        message: "You are now a seller",
+      });
+    },
   );
 });
 

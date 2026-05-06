@@ -13,6 +13,7 @@
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -25,9 +26,10 @@ yarn-error.log*
 testReport.json
 .vercel
 
-package-lock.json
 pnpm-lock.yaml
 
 *.log
 
 setup.sh
+
+ToREAD.md

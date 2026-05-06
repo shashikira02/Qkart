@@ -7,6 +7,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Box } from "@mui/system";
 import axios from "axios";
 import { useSnackbar } from "notistack";
@@ -131,6 +132,11 @@ const Checkout = () => {
     value: "",
   });
 
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paymentMethod, setPaymentMethod] = useState("wallet");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+
   // Fetch the entire products list
   const getProducts = async () => {
     try {
@@ -147,7 +153,7 @@ const Checkout = () => {
           "Could not fetch products. Check that the backend is running, reachable and returns valid JSON.",
           {
             variant: "error",
-          }
+          },
         );
       }
     }
@@ -168,7 +174,7 @@ const Checkout = () => {
         "Could not fetch cart details. Check that the backend is running, reachable and returns valid JSON.",
         {
           variant: "error",
-        }
+        },
       );
       return null;
     }
@@ -219,7 +225,7 @@ const Checkout = () => {
         "Could not fetch addresses. Check that the backend is running, reachable and returns valid JSON.",
         {
           variant: "error",
-        }
+        },
       );
       return null;
     }
@@ -271,7 +277,7 @@ const Checkout = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       setAddresses({
         ...addresses,
@@ -286,7 +292,7 @@ const Checkout = () => {
           "Could not add this address. Check that the backend is running, reachable and returns valid JSON.",
           {
             variant: "error",
-          }
+          },
         );
       }
     }
@@ -334,7 +340,7 @@ const Checkout = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       setAddresses({ ...addresses, all: response.data });
@@ -346,7 +352,7 @@ const Checkout = () => {
           "Could not delete this address. Check that the backend is running, reachable and returns valid JSON.",
           {
             variant: "error",
-          }
+          },
         );
       }
     }
@@ -377,12 +383,15 @@ const Checkout = () => {
    *
    */
   const validateRequest = (items, addresses) => {
-    if (getTotalCartValue(items) > localStorage.getItem("balance")) {
+    if (
+      paymentMethod === "wallet" &&
+      getTotalCartValue(items) > localStorage.getItem("balance")
+    ) {
       enqueueSnackbar(
         "You do not have enough balance in your wallet for this purchase",
         {
           variant: "warning",
-        }
+        },
       );
       return false;
     }
@@ -436,45 +445,68 @@ const Checkout = () => {
   const performCheckout = async (token, items, addresses) => {
     if (!validateRequest(items, addresses)) return;
 
+    setPaymentProcessing(true);
     try {
+      let paymentIntentId = null;
+
+      if (paymentMethod === "card") {
+        // Step 1 — create payment intent
+        const intentRes = await axios.post(
+          `${config.endpoint}/payment/create-intent`,
+          { amount: getTotalCartValue(items) },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        const { clientSecret } = intentRes.data;
+
+        // Step 2 — confirm card payment
+        const cardElement = elements.getElement(CardElement);
+        const { error, paymentIntent } = await stripe.confirmCardPayment(
+          clientSecret,
+          {
+            payment_method: { card: cardElement },
+          },
+        );
+
+        if (error) {
+          enqueueSnackbar(error.message, { variant: "error" });
+          setPaymentProcessing(false);
+          return;
+        }
+        paymentIntentId = paymentIntent.id;
+      }
+
+      // Step 3 — place order
       const res = await axios.post(
         `${config.endpoint}/cart/checkout`,
         {
           addressId: addresses.selected,
+          paymentMethod,
+          paymentIntentId,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (res.status === 200 && res.data.success) {
-        const totalCartValue = getTotalCartValue(items);
-        const currentbalance = localStorage.getItem("balance");
-        const updatedBalance = currentbalance - totalCartValue;
 
-        localStorage.setItem("balance", updatedBalance);
+      if (res.status === 200 && res.data.success) {
+        if (paymentMethod === "wallet") {
+          const totalCartValue = getTotalCartValue(items);
+          localStorage.setItem(
+            "balance",
+            localStorage.getItem("balance") - totalCartValue,
+          );
+        }
         enqueueSnackbar("Order placed successfully", { variant: "success" });
-        history.push("/thanks");
-        return true;
-      } else {
-        enqueueSnackbar("Checkout failed. Please try again.", {
-          variant: "error",
-        });
-        return false;
+        history.push("/thanks", { order: res.data.order });
       }
     } catch (e) {
-      if (e.response && e.response.data && e.response.data.message) {
-        enqueueSnackbar(e.response.data.message, { variant: "error" });
-      } else {
-        enqueueSnackbar("Could not place the order. Please try again later.", {
-          variant: "error",
-        });
-      }
-      return false;
+      enqueueSnackbar(
+        e.response?.data?.message ||
+          "Could not place the order. Please try again.",
+        { variant: "error" },
+      );
+    } finally {
+      setPaymentProcessing(false);
     }
   };
-
 
   // Fetch products and cart data on page load
   useEffect(() => {
@@ -501,7 +533,19 @@ const Checkout = () => {
     } else {
       getAddresses(token);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const CARD_ELEMENT_OPTIONS = {
+    style: {
+      base: {
+        fontSize: "16px",
+        color: "#424770",
+        "::placeholder": { color: "#aab7c4" },
+      },
+      invalid: { color: "#9e2146" },
+    },
+  };
 
   return (
     <>
@@ -581,20 +625,68 @@ const Checkout = () => {
             </Typography>
             <Divider />
 
-            <Box my="1rem">
-              <Typography>Wallet</Typography>
-              <Typography>
-                Pay ${getTotalCartValue(items)} of available $
-                {localStorage.getItem("balance")}
-              </Typography>
+            <Box my="1rem" display="flex" gap={2}>
+              <Button
+                variant={paymentMethod === "wallet" ? "contained" : "outlined"}
+                onClick={() => setPaymentMethod("wallet")}
+                sx={
+                  paymentMethod === "wallet"
+                    ? {}
+                    : { borderColor: "#00a278", color: "#00a278" }
+                }
+              >
+                Wallet (${localStorage.getItem("balance")})
+              </Button>
+              <Button
+                variant={paymentMethod === "card" ? "contained" : "outlined"}
+                onClick={() => setPaymentMethod("card")}
+                sx={
+                  paymentMethod === "card"
+                    ? {}
+                    : { borderColor: "#00a278", color: "#00a278" }
+                }
+              >
+                Credit / Debit Card
+              </Button>
             </Box>
+
+            {paymentMethod === "wallet" && (
+              <Box my="1rem">
+                <Typography>
+                  Pay ${getTotalCartValue(items)} from wallet balance of $
+                  {localStorage.getItem("balance")}
+                </Typography>
+              </Box>
+            )}
+
+            {paymentMethod === "card" && (
+              <Box
+                my="1rem"
+                p={2}
+                sx={{ border: "1px solid #e0e0e0", borderRadius: 2 }}
+              >
+                <Typography variant="body2" mb={1} color="text.secondary">
+                  Enter card details
+                </Typography>
+                <CardElement options={CARD_ELEMENT_OPTIONS} />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  mt={1}
+                  display="block"
+                >
+                  Test card: 4242 4242 4242 4242 | Any future date | Any CVC
+                </Typography>
+              </Box>
+            )}
 
             <Button
               startIcon={<CreditCard />}
               variant="contained"
+              disabled={paymentProcessing || !stripe}
               onClick={() => performCheckout(token, items, addresses)}
             >
-              PLACE ORDER
+              {paymentProcessing ? "Processing..." : "PLACE ORDER"}
             </Button>
           </Box>
         </Grid>

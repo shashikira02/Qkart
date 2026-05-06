@@ -26,8 +26,8 @@ const Login = () => {
     });
   };
 
-  if(localStorage.getItem('token')){
-    history.push('/')
+  if (localStorage.getItem("token")) {
+    history.push("/");
   }
 
   /**
@@ -64,24 +64,26 @@ const Login = () => {
           password: formData.password,
         });
         console.log(response.data);
-        const { token, username, balance } = response.data;
-        persistLogin(token, username, balance);
+        const { token, username, balance, isSeller, isAdmin, adminPriority } = response.data;
+        persistLogin(token, username, balance, isSeller, isAdmin, adminPriority);
         enqueueSnackbar("Logged in Successfully", {
           variant: "success",
         });
-        history.push('/');
+        history.push("/");
       } catch (error) {
         if (error.response && error.response.status === 400) {
           enqueueSnackbar(error.response.data.message, {
             variant: "error",
           });
+        } else if (error.response && error.response.status === 429) {
+          enqueueSnackbar(error.response.data.message, { variant: "warning" });
         } else {
           console.error(error);
           enqueueSnackbar(
             "Something went wrong. Check that the backend is running, reachable and returns valid JSON.",
             {
               variant: "error",
-            }
+            },
           );
         }
       } finally {
@@ -131,10 +133,13 @@ const Login = () => {
    * -    `username` field in localStorage can be used to store the username that the user is logged in as
    * -    `balance` field in localStorage can be used to store the balance amount in the user's wallet
    */
-  const persistLogin = (token, username, balance) => {
+  const persistLogin = (token, username, balance, isSeller, isAdmin, adminPriority) => {
     localStorage.setItem("token", token);
     localStorage.setItem("username", username);
     localStorage.setItem("balance", balance);
+    localStorage.setItem("isSeller", isSeller);
+    localStorage.setItem("isAdmin", isAdmin);
+    localStorage.setItem("adminPriority", adminPriority || "");
   };
 
   return (
@@ -150,11 +155,11 @@ const Login = () => {
           <h2 className="title">Login</h2>
           <TextField
             id="username"
-            label="Username"
+            label="Username or Email"
             variant="outlined"
             title="Username"
             name="username"
-            placeholder="Enter Username"
+            placeholder="Enter Username or Email"
             fullWidth
             value={formData.username}
             onChange={changeFunction}
@@ -171,11 +176,11 @@ const Login = () => {
             value={formData.password}
             onChange={changeFunction}
           />
-          {isLogin ? 
+          {isLogin ? (
             <Box display="flex" justifyContent="center" alignItems="center">
               <CircularProgress size={25} color="primary" />
             </Box>
-          : 
+          ) : (
             <Button
               className="button"
               variant="contained"
@@ -185,9 +190,16 @@ const Login = () => {
             >
               Login to Qkart
             </Button>
-          }
+          )}
           <p className="secondary-action">
-            Don't have an account? <Link to="/register" className='link'>Register now</Link>
+            Don't have an account?{" "}
+            <Link to="/register" className="link">
+              Register now
+            </Link>
+            {" | "}
+            <Link to="/forgot-password" className="link">
+              Forgot Password?
+            </Link>
           </p>
         </Stack>
       </Box>
