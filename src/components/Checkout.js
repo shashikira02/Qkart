@@ -625,7 +625,7 @@ const Checkout = () => {
             </Typography>
             <Divider />
 
-            <Box my="1rem" display="flex" gap={2}>
+            <Box my="1rem" display="flex" gap={2} flexWrap="wrap">
               <Button
                 variant={paymentMethod === "wallet" ? "contained" : "outlined"}
                 onClick={() => setPaymentMethod("wallet")}

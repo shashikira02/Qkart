@@ -71,7 +71,7 @@ const WalletTopup = () => {
   return (
     <Box display="flex" flexDirection="column" minHeight="100vh">
       <Header />
-      <Box p={3} maxWidth={420} mx="auto" flexGrow={1} mt={4}>
+      <Box p={3} maxWidth={420} width="100%" mx="auto" flexGrow={1} mt={4} sx={{ boxSizing: "border-box" }}>
         <Typography variant="h5" fontWeight={700} mb={1}>
           Top Up Wallet
         </Typography>

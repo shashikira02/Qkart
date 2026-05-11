@@ -38,3 +38,13 @@
     align-items: center;
     justify-content: space-between;
 }
+
+@media screen and (max-width: 600px) {
+    .image-container {
+        max-width: 5rem;
+        max-height: 7rem;
+    }
+    .checkout-btn {
+        font-size: 0.95rem;
+    }
+}
