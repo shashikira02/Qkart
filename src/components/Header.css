@@ -2,10 +2,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
-    height: 5vh;
+    padding: 0.5rem 1rem;
+    min-height: 60px;
     box-shadow: 0px 0px 5px 0px rgba(0, 0, 0, 0.2);
     background: #ffffff;
+    flex-wrap: nowrap;
+    overflow: visible;
+    position: relative;
+    z-index: 100;
 }
 
 .username-text {

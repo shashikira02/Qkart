@@ -109,7 +109,10 @@ const Header = ({ children, hasHiddenAuthButtons }) => {
         <img src="logo_light.svg" alt="QKart-icon" />
       </Box>
 
-      {children}
+      {/* Hide search/children on mobile */}
+      <Box sx={{ display: { xs: "none", md: "block" }, flexGrow: 1, mx: 2 }}>
+        {children}
+      </Box>
 
       {/* Desktop nav */}
       <Stack direction="row" alignItems="center" gap={1} sx={{ display: { xs: "none", md: "flex" } }}>
